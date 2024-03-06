@@ -11,7 +11,10 @@ import com.group.libraryapp.domain.user.loanhistory.UserLoanHistoryRepository
 import com.group.libraryapp.dto.book.request.BookLoanRequest
 import com.group.libraryapp.dto.book.request.BookRequest
 import com.group.libraryapp.dto.book.request.BookReturnRequest
+import org.assertj.core.api.Assertions.`as`
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.groups.Tuple
+import org.assertj.core.groups.Tuple.tuple
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
@@ -100,5 +103,44 @@ class BookServiceTest @Autowired constructor(
         val histories = userLoanHistoryRepository.findAll()
         assertThat(histories).hasSize(1)
         assertThat(histories[0].status).isEqualTo(UserLoanStatus.RETURNED)
+    }
+
+    @DisplayName("책 대여 권수를 정상 확인한다.")
+    @Test
+    fun countLoanedBook() {
+        // given
+        val user = userRepository.save(User("최태현", null))
+        userLoanHistoryRepository.saveAll(listOf(
+            UserLoanHistory.fixture(user, "A"),
+            UserLoanHistory.fixture(user, "B", UserLoanStatus.RETURNED)
+        ))
+
+        // when
+        val count = bookService.countLoanedBook()
+
+        //then
+        assertThat(count).isEqualTo(1)
+    }
+
+    @DisplayName("분야별 책 권수를 정상 확인한다.")
+    @Test
+    fun getBookStatistics() {
+        // given
+        bookRepository.saveAll(listOf(
+            Book.fixture("A", BookType.COMPUTER),
+            Book.fixture("B", BookType.COMPUTER),
+            Book.fixture("C", BookType.SCIENCE),
+        ))
+
+        // when
+        val statistics = bookService.getBookStatistics()
+
+        //then
+        assertThat(statistics).hasSize(2)
+            .extracting("type", "count")
+            .containsExactlyInAnyOrder(
+                tuple(BookType.COMPUTER, 2L),
+                tuple(BookType.SCIENCE, 1L),
+            )
     }
 }
