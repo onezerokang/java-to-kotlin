@@ -1,7 +1,10 @@
 package com.group.libraryapp.service.user
 
 import com.group.libraryapp.domain.user.User
+import com.group.libraryapp.domain.user.UserLoanStatus
 import com.group.libraryapp.domain.user.UserRepository
+import com.group.libraryapp.domain.user.loanhistory.UserLoanHistory
+import com.group.libraryapp.domain.user.loanhistory.UserLoanHistoryRepository
 import com.group.libraryapp.dto.user.request.UserCreateRequest
 import com.group.libraryapp.dto.user.request.UserUpdateRequest
 import org.assertj.core.api.Assertions.assertThat
@@ -14,12 +17,14 @@ import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
 class UserServiceTest @Autowired constructor(
-        private val userRepository: UserRepository,
-        private val userService: UserService
+    private val userRepository: UserRepository,
+    private val userService: UserService,
+    private val userLoanHistoryRepository: UserLoanHistoryRepository,
 ) {
 
     @AfterEach
     fun tearDown() {
+        userLoanHistoryRepository.deleteAllInBatch()
         userRepository.deleteAllInBatch()
     }
 
@@ -31,7 +36,7 @@ class UserServiceTest @Autowired constructor(
 
         // when
         userService.saveUser(request)
-      
+
         //then
         val users = userRepository.findAll()
         assertThat(users).hasSize(1)
@@ -43,10 +48,12 @@ class UserServiceTest @Autowired constructor(
     @Test
     fun getUsers() {
         // given
-        userRepository.saveAll(listOf(
-            User("A", 20),
-            User("B", null),
-        ))
+        userRepository.saveAll(
+            listOf(
+                User("A", 20),
+                User("B", null),
+            )
+        )
 
         // when
         val users = userService.getUsers()
@@ -88,5 +95,46 @@ class UserServiceTest @Autowired constructor(
         //then
         val users = userRepository.findAll()
         assertThat(users).isEmpty()
+    }
+
+    @DisplayName("대출 기록이 없는 유저도 응답에 포함된다.")
+    @Test
+    fun getUserLoanHistories() {
+        // given
+        userRepository.save(User("A", null))
+
+        // when
+        val userLoanHistories = userService.getUserLoanHistories()
+
+        //then
+        assertThat(userLoanHistories).hasSize(1)
+        assertThat(userLoanHistories[0].name).isEqualTo("A")
+        assertThat(userLoanHistories[0].books).isEmpty()
+    }
+
+    @DisplayName("대출 기록이 많은 유저의 응답이 정상 동작한다.")
+    @Test
+    fun getUserLoanHistories2() {
+        // given
+        val user = userRepository.save(User("A", null))
+        userLoanHistoryRepository.saveAll(
+            listOf(
+                UserLoanHistory.fixture(user, "책1", UserLoanStatus.LOANED),
+                UserLoanHistory.fixture(user, "책2", UserLoanStatus.LOANED),
+                UserLoanHistory.fixture(user, "책3", UserLoanStatus.RETURNED),
+            )
+        )
+
+        // when
+        val userLoanHistories = userService.getUserLoanHistories()
+
+        //then
+        assertThat(userLoanHistories).hasSize(1)
+        assertThat(userLoanHistories[0].name).isEqualTo("A")
+        assertThat(userLoanHistories[0].books).extracting("name")
+            .containsExactlyInAnyOrder("책1", "책2", "책3")
+        assertThat(userLoanHistories[0].books).extracting("isReturn")
+            .containsExactlyInAnyOrder(false, false, true)
+
     }
 }
