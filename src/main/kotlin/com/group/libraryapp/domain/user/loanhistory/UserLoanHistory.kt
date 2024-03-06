@@ -2,6 +2,7 @@ package com.group.libraryapp.domain.user.loanhistory
 
 import com.group.libraryapp.domain.user.User
 import com.group.libraryapp.domain.user.UserLoanStatus
+import com.group.libraryapp.dto.user.response.BooksHistoryResponse
 import javax.persistence.Entity
 import javax.persistence.GeneratedValue
 import javax.persistence.GenerationType
@@ -21,6 +22,8 @@ class UserLoanHistory(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
 ) {
+    val isReturn: Boolean
+        get() = this.status == UserLoanStatus.RETURNED
 
     fun doReturn() {
         this.status = UserLoanStatus.RETURNED
